@@ -65,6 +65,101 @@
             margin-bottom: 5px;
         }
 
+        /* Dashboard Styles */
+        .category-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f2f5;
+            padding-bottom: 10px;
+        }
+
+        .category-title {
+            font-size: 1.25em;
+            font-weight: bold;
+            text-transform: capitalize;
+            color: #333;
+        }
+
+        .view-all-btn {
+            background: none;
+            border: 1px solid #007bff;
+            color: #007bff;
+            padding: 5px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .view-all-btn:hover {
+            background: #e1ecf4;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .preview-grid .detection-card {
+            font-size: 0.8em;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.open {
+            display: block;
+        }
+
+        .modal-content {
+            background: #f0f2f5;
+            margin: 30px auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 1200px;
+            border-radius: 8px;
+            min-height: 80vh;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-modal {
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
         .detection-feed {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -126,17 +221,28 @@
             <button onclick="addPrompt()">Add Prompt</button>
             <button onclick="clearPrompts()" style="background-color: #dc3545;">Clear All</button>
         </div>
-        <div id="prompt-list"></div>
+        <div id="dashboard">
+            <!-- Category sections will appear here -->
+        </div>
 
-        <h2>Live Detections</h2>
-        <div id="detection-feed" class="detection-feed">
-            <!-- Detections will appear here -->
+        <!-- Modal -->
+        <div id="imageModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">Category Images</h2>
+                    <span class="close-modal" onclick="closeModal()">&times;</span>
+                </div>
+                <div id="modal-grid" class="modal-grid">
+                    <!-- All images for category go here -->
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         let ws = new WebSocket("ws://" + window.location.host + "/ws");
         let currentPrompts = [];
+        let detections = {}; // { 'label': [ {image, label, confidence, timestamp} ] }
 
         ws.onopen = function () {
             document.getElementById("status-dot").classList.add("connected");
@@ -165,6 +271,11 @@
             }
         };
 
+        function updatePromptDisplay(prompts) {
+            currentPrompts = prompts;
+            renderDashboard();
+        }
+
         function updatePiStatus(connected) {
             const dot = document.getElementById("pi-status-dot");
             const text = document.getElementById("pi-status-text");
@@ -179,7 +290,7 @@
 
         function addPrompt() {
             const input = document.getElementById("prompt-input");
-            const val = input.value.trim();
+            const val = input.value.trim().toLowerCase();
             if (val && !currentPrompts.includes(val)) {
                 currentPrompts.push(val);
                 sendPrompts();
@@ -190,6 +301,8 @@
         function clearPrompts() {
             currentPrompts = [];
             sendPrompts();
+            // Clear dashboard? Optional.
+            renderDashboard();
         }
 
         function sendPrompts() {
@@ -197,41 +310,107 @@
                 type: "set_prompt",
                 prompts: currentPrompts
             }));
-            updatePromptDisplay(currentPrompts);
+            renderDashboard(); // Re-render to show/hide sections
         }
 
-        function updatePromptDisplay(prompts) {
-            currentPrompts = prompts;
-            const container = document.getElementById("prompt-list");
-            container.innerHTML = "";
-            prompts.forEach(p => {
-                const tag = document.createElement("span");
-                tag.className = "tag";
-                tag.textContent = p;
-                container.appendChild(tag);
+        function renderDashboard() {
+            const dashboard = document.getElementById("dashboard");
+
+            // For each prompt, ensure a section exists
+            currentPrompts.forEach(p => {
+                if (!document.getElementById(`section-${p}`)) {
+                    const section = document.createElement("div");
+                    section.className = "category-section";
+                    section.id = `section-${p}`;
+                    section.innerHTML = `
+                        <div class="category-header">
+                            <div class="category-title">${p}</div>
+                            <button class="view-all-btn" onclick="openModal('${p}')">View All</button>
+                        </div>
+                        <div id="grid-${p}" class="preview-grid">
+                            <div style="color: #999; grid-column: 1/-1;">Waiting for detections...</div>
+                        </div>
+                    `;
+                    dashboard.prepend(section); // Newest prompts at top
+                } else {
+                    document.getElementById(`section-${p}`).style.display = 'block';
+                }
+            });
+
+            // Hide sections for removed prompts
+            const sections = document.querySelectorAll('.category-section');
+            sections.forEach(s => {
+                const label = s.id.replace('section-', '');
+                if (!currentPrompts.includes(label)) {
+                    s.style.display = 'none';
+                }
             });
         }
 
         function addDetection(data) {
-            const container = document.getElementById("detection-feed");
+            const label = data.label.toLowerCase();
+            if (!detections[label]) detections[label] = [];
+
+            detections[label].unshift(data); // Add to front
+
+            // Update Preview Grid (Top 10)
+            const grid = document.getElementById(`grid-${label}`);
+            if (grid) {
+                // Remove 'waiting' message if present
+                if (grid.textContent.includes("Waiting")) grid.innerHTML = "";
+
+                const card = createCard(data);
+                grid.prepend(card);
+
+                if (grid.children.length > 8) {
+                    grid.removeChild(grid.lastChild);
+                }
+            }
+
+            // If modal is open for this category, update it too
+            const modal = document.getElementById("imageModal");
+            const modalTitle = document.getElementById("modal-title").textContent.toLowerCase();
+            if (modal.classList.contains('open') && modalTitle === label) {
+                const modalGrid = document.getElementById("modal-grid");
+                modalGrid.prepend(createCard(data));
+            }
+        }
+
+        function createCard(data) {
             const card = document.createElement("div");
             card.className = "detection-card";
+            card.innerHTML = `
+                <img src="data:image/jpeg;base64,${data.image}"/>
+                <div class="detection-info"><strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)</div>
+            `;
+            return card;
+        }
 
-            const img = document.createElement("img");
-            img.src = "data:image/jpeg;base64," + data.image; // Assuming JPEG base64
+        // Modal Functions
+        function openModal(label) {
+            const modal = document.getElementById("imageModal");
+            document.getElementById("modal-title").innerText = label;
 
-            const info = document.createElement("div");
-            info.className = "detection-info";
-            info.innerHTML = `<strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)`;
+            const grid = document.getElementById("modal-grid");
+            grid.innerHTML = "";
 
-            card.appendChild(img);
-            card.appendChild(info);
+            const items = detections[label] || [];
+            items.forEach(data => {
+                grid.appendChild(createCard(data));
+            });
 
-            container.prepend(card);
+            modal.classList.add("open");
+        }
 
-            // Limit to 20 items to prevent memory issues in long run
-            if (container.children.length > 20) {
-                container.removeChild(container.lastChild);
+        function closeModal() {
+            document.getElementById("imageModal").classList.remove("open");
+        }
+
+        // Close modal on outside click
+        window.onclick = function (event) {
+            const modal = document.getElementById("imageModal");
+            if (event.target == modal) {
+                closeModal();
             }
         }
 
