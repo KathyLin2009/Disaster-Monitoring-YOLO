@@ -110,8 +110,9 @@ class ObjectDetectionClient:
             if detected and (current_time - self.last_detection_time > self.detection_cooldown):
                 print(f"Detected {best_label} ({best_conf:.2f}). Sending to server...")
                 
-                # Encode frame to jpg -> base64
-                _, buffer = cv2.imencode('.jpg', frame)
+                # Encode annotated frame (with boxes) to jpg -> base64
+                annotated_img = results[0].plot()
+                _, buffer = cv2.imencode('.jpg', annotated_img)
                 jpg_as_text = base64.b64encode(buffer).decode('utf-8')
                 
                 payload = {
