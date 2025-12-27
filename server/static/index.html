@@ -148,6 +148,49 @@
             margin-bottom: 20px;
         }
 
+        /* Lightbox Styles */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox.open {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2em;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .detection-card img {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .detection-card img:hover {
+            opacity: 0.8;
+        }
+
         .close-modal {
             font-size: 1.5em;
             cursor: pointer;
@@ -225,17 +268,21 @@
             <!-- Category sections will appear here -->
         </div>
 
-        <!-- Modal -->
+        <!-- Modal (View All) -->
         <div id="imageModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2 id="modal-title">Category Images</h2>
                     <span class="close-modal" onclick="closeModal()">&times;</span>
                 </div>
-                <div id="modal-grid" class="modal-grid">
-                    <!-- All images for category go here -->
-                </div>
+                <div id="modal-grid" class="modal-grid"></div>
             </div>
+        </div>
+
+        <!-- Lightbox (Single Image) -->
+        <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+            <span class="lightbox-close">&times;</span>
+            <img id="lightbox-img" class="lightbox-content" src="" onclick="event.stopPropagation()">
         </div>
     </div>
 
@@ -379,14 +426,22 @@
         function createCard(data) {
             const card = document.createElement("div");
             card.className = "detection-card";
-            card.innerHTML = `
-                <img src="data:image/jpeg;base64,${data.image}"/>
-                <div class="detection-info"><strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)</div>
-            `;
+
+            // Create image element manually to attach event listener easily
+            const img = document.createElement("img");
+            img.src = "data:image/jpeg;base64," + data.image; // Assuming JPEG base64
+            img.onclick = function () { openLightbox(data.image); };
+
+            const info = document.createElement("div");
+            info.className = "detection-info";
+            info.innerHTML = `<strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)`;
+
+            card.appendChild(img);
+            card.appendChild(info);
             return card;
         }
 
-        // Modal Functions
+        // Modal Functions (View All)
         function openModal(label) {
             const modal = document.getElementById("imageModal");
             document.getElementById("modal-title").innerText = label;
@@ -406,11 +461,28 @@
             document.getElementById("imageModal").classList.remove("open");
         }
 
-        // Close modal on outside click
+        // Lightbox Functions (Single Image)
+        function openLightbox(base64Image) {
+            const lightbox = document.getElementById("lightbox");
+            const img = document.getElementById("lightbox-img");
+            img.src = "data:image/jpeg;base64," + base64Image;
+            lightbox.classList.add("open");
+        }
+
+        function closeLightbox() {
+            document.getElementById("lightbox").classList.remove("open");
+        }
+
+        // Close modals on outside click
         window.onclick = function (event) {
             const modal = document.getElementById("imageModal");
+            const lightbox = document.getElementById("lightbox"); // Added lightbox reference
             if (event.target == modal) {
                 closeModal();
+            }
+            // Also close lightbox if clicked outside its content
+            if (event.target == lightbox) {
+                closeLightbox();
             }
         }
 
