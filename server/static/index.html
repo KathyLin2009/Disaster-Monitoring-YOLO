@@ -1,32 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YOLOE Object Detection Control</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        #prompt-list { margin-bottom: 20px; }
-        .tag { display: inline-block; background: #e1ecf4; color: #39739d; padding: 5px 10px; border-radius: 15px; margin-right: 5px; margin-bottom: 5px; }
-        .detection-feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .detection-card { border: 1px solid #eee; padding: 10px; border-radius: 4px; background: #fff; }
-        .detection-card img { width: 100%; height: auto; display: block; border-radius: 4px; }
-        .detection-info { margin-top: 10px; font-size: 0.9em; color: #666; }
-        .status { margin-bottom: 10px; font-size: 0.9em; color: #666; }
-        .dot { height: 10px; width: 10px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .connected { background-color: #28a745; }
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #prompt-list {
+            margin-bottom: 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #e1ecf4;
+            color: #39739d;
+            padding: 5px 10px;
+            border-radius: 15px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .detection-feed {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .detection-card {
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 4px;
+            background: #fff;
+        }
+
+        .detection-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .detection-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .status {
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .dot {
+            height: 10px;
+            width: 10px;
+            background-color: #bbb;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .connected {
+            background-color: #28a745;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Object Detection Control</h1>
-        <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">Disconnected</span></div>
+        <div class="status">
+            Server: <span id="status-dot" class="dot"></span><span id="status-text">Disconnected</span>
+            &nbsp;|&nbsp;
+            Client (Drone): <span id="pi-status-dot" class="dot"></span><span id="pi-status-text">Disconnected</span>
+        </div>
 
         <div class="controls">
             <input type="text" id="prompt-input" placeholder="Enter object to detect (e.g., 'red apple', 'cat')">
@@ -45,27 +138,44 @@
         let ws = new WebSocket("ws://" + window.location.host + "/ws");
         let currentPrompts = [];
 
-        ws.onopen = function() {
+        ws.onopen = function () {
             document.getElementById("status-dot").classList.add("connected");
             document.getElementById("status-text").textContent = "Connected";
             console.log("Connected to WebSocket");
         };
 
-        ws.onclose = function() {
+        ws.onclose = function () {
             document.getElementById("status-dot").classList.remove("connected");
             document.getElementById("status-text").textContent = "Disconnected";
             console.log("Disconnected from WebSocket");
         };
 
-        ws.onmessage = function(event) {
+        ws.onmessage = function (event) {
             const data = JSON.parse(event.data);
-            
-            if (data.type === 'update_prompt') {
+
+            if (data.type === 'init') {
+                updatePromptDisplay(data.prompts);
+                updatePiStatus(data.pi_connected);
+            } else if (data.type === 'pi_status') {
+                updatePiStatus(data.connected);
+            } else if (data.type === 'update_prompt') {
                 updatePromptDisplay(data.prompts);
             } else if (data.type === 'detection_event') {
                 addDetection(data);
             }
         };
+
+        function updatePiStatus(connected) {
+            const dot = document.getElementById("pi-status-dot");
+            const text = document.getElementById("pi-status-text");
+            if (connected) {
+                dot.classList.add("connected");
+                text.textContent = "Connected";
+            } else {
+                dot.classList.remove("connected");
+                text.textContent = "Disconnected";
+            }
+        }
 
         function addPrompt() {
             const input = document.getElementById("prompt-input");
@@ -106,17 +216,17 @@
             const container = document.getElementById("detection-feed");
             const card = document.createElement("div");
             card.className = "detection-card";
-            
+
             const img = document.createElement("img");
             img.src = "data:image/jpeg;base64," + data.image; // Assuming JPEG base64
-            
+
             const info = document.createElement("div");
             info.className = "detection-info";
             info.innerHTML = `<strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)`;
 
             card.appendChild(img);
             card.appendChild(info);
-            
+
             container.prepend(card);
 
             // Limit to 20 items to prevent memory issues in long run
@@ -126,11 +236,12 @@
         }
 
         // Allow Enter key to add prompt
-        document.getElementById("prompt-input").addEventListener("keypress", function(event) {
+        document.getElementById("prompt-input").addEventListener("keypress", function (event) {
             if (event.key === "Enter") {
                 addPrompt();
             }
         });
     </script>
 </body>
+
 </html>

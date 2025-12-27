@@ -42,6 +42,8 @@ class ObjectDetectionClient:
 
     def on_open(self, ws):
         print("WebSocket Connected")
+        # Register as Pi
+        ws.send(json.dumps({"type": "register_pi"}))
 
     def connect(self):
         # Run WebSocket in a separate thread so it doesn't block the camera loop

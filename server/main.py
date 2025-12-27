@@ -22,16 +22,27 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.current_prompts: List[str] = []
+        self.pi_connected = False
+        self.client_info = {} # ws -> client_type
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        # Send current prompts to newly connected client immediately
-        if self.current_prompts:
-            await websocket.send_json({"type": "update_prompt", "prompts": self.current_prompts})
+        # Send current prompts and pi status to newly connected client
+        await websocket.send_json({
+            "type": "init", 
+            "prompts": self.current_prompts,
+            "pi_connected": self.pi_connected
+        })
 
-    def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        if self.client_info.get(websocket) == "pi":
+            self.pi_connected = False
+            del self.client_info[websocket]
+            await self.broadcast({"type": "pi_status", "connected": False})
+        elif websocket in self.client_info:
+             del self.client_info[websocket]
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -42,17 +53,20 @@ class ConnectionManager:
 
     async def handle_prompt_update(self, prompts: List[str]):
         self.current_prompts = prompts
-        # Broadcast new prompts to all (specifically needed for the Pi)
         await self.broadcast({"type": "update_prompt", "prompts": prompts})
 
     async def handle_detection_event(self, data: dict):
-        # Broadcast detection image/info to all (specifically needed for the Browser)
         await self.broadcast({
             "type": "detection_event", 
             "image": data.get("image"),
             "label": data.get("label"),
             "confidence": data.get("confidence")
         })
+
+    async def register_pi(self, websocket: WebSocket):
+        self.client_info[websocket] = "pi"
+        self.pi_connected = True
+        await self.broadcast({"type": "pi_status", "connected": True})
 
 manager = ConnectionManager()
 
@@ -69,15 +83,18 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_json()
             msg_type = data.get("type")
 
-            if msg_type == "set_prompt":
+            if msg_type == "register_pi":
+                print("Pi connected and registered.")
+                await manager.register_pi(websocket)
+
+            elif msg_type == "set_prompt":
                 prompts = data.get("prompts", [])
                 print(f"Received new prompts: {prompts}")
                 await manager.handle_prompt_update(prompts)
             
             elif msg_type == "detection":
-                # print(f"Received detection for: {data.get('label')}")
                 await manager.handle_detection_event(data)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
         print("Client disconnected")
