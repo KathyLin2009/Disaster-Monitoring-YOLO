@@ -1,0 +1,12 @@
+# Ignore image files
+*.jpg
+*.pt
+*.pyc
+*.ts
+
+
+# Ignore specific directories containing images
+client/test_images/
+server/static/detections/
+server/__pycache__/
+
