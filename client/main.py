@@ -119,7 +119,11 @@ class ObjectDetectionClient:
                     "type": "detection",
                     "image": jpg_as_text,
                     "label": best_label,
-                    "confidence": best_conf
+                    "confidence": best_conf,
+                    "gps": {
+                        "lat": 42.21796186856417,
+                        "lon": -71.16652560166608
+                    }
                 }
                 
                 try:

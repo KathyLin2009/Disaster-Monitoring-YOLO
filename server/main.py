@@ -60,7 +60,8 @@ class ConnectionManager:
             "type": "detection_event", 
             "image": data.get("image"),
             "label": data.get("label"),
-            "confidence": data.get("confidence")
+            "confidence": data.get("confidence"),
+            "gps": data.get("gps")
         })
 
     async def register_pi(self, websocket: WebSocket):

@@ -434,7 +434,17 @@
 
             const info = document.createElement("div");
             info.className = "detection-info";
-            info.innerHTML = `<strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)`;
+
+            let htmlContent = `<strong>${data.label}</strong> (${(data.confidence * 100).toFixed(1)}%)`;
+
+            if (data.gps) {
+                const lat = data.gps.lat;
+                const lon = data.gps.lon;
+                htmlContent += `<br><small>GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)}</small>`;
+                htmlContent += `<br><a href="https://www.google.com/maps/search/?api=1&query=${lat},${lon}" target="_blank" style="color: #007bff; text-decoration: none; font-size: 0.9em;">View on Map 📍</a>`;
+            }
+
+            info.innerHTML = htmlContent;
 
             card.appendChild(img);
             card.appendChild(info);
