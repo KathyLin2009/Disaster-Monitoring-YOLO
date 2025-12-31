@@ -5,6 +5,11 @@ import logging
 from typing import List
 import json
 import os
+import base64
+import time
+import google.generativeai as genai
+from google.api_core import exceptions
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -69,7 +74,57 @@ class ConnectionManager:
         self.pi_connected = True
         await self.broadcast({"type": "pi_status", "connected": True})
 
+
+
 manager = ConnectionManager()
+
+# Gemini Configuration
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("Warning: GEMINI_API_KEY not set. Image analysis will fail.")
+
+class ImageAnalysisRequest(BaseModel):
+    image: str
+
+@app.post("/analyze_image")
+async def analyze_image(request: ImageAnalysisRequest):
+    if not GEMINI_API_KEY:
+        return {"description": "Error: Server missing GEMINI_API_KEY."}
+
+    try:
+        # Remove header if present
+        img_str = request.image
+        if "," in img_str:
+            img_str = img_str.split(",")[1]
+        
+        img_bytes = base64.b64decode(img_str)
+        
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        prompt = """Analyze the provided image for any potential risks or hazards. Also give a brief description. 
+        Do not mention the YOLO bounding boxes or percentages.
+        Do not format the output, just use plain text in one paragraph."""
+
+        # Retry logic for rate limits
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content([
+                    prompt,
+                    {"mime_type": "image/jpeg", "data": img_bytes}
+                ])
+                return {"description": response.text}
+            except exceptions.ResourceExhausted as e:
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + 1 # 2s, 3s, 5s...
+                    print(f"Rate limit hit. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    raise e
+    except Exception as e:
+        print(f"Gemini Error: {e}")
+        return {"description": f"Failed to analyze image: {str(e)}"}
 
 @app.get("/")
 async def get():
