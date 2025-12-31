@@ -19,7 +19,7 @@ class ObjectDetectionClient:
         self.cap = None
         self.running = True
         self.last_detection_time = 0
-        self.detection_cooldown = 2.0
+        self.detection_cooldown = 4.0
 
     def on_message(self, ws, message):
         data = json.loads(message)
