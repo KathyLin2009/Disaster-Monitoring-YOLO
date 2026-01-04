@@ -6,6 +6,7 @@ import time
 import threading
 from ultralytics import YOLOE
 import numpy as np
+from pymavlink import mavutil
 
 # Configuration
 SERVER_URL = "ws://192.168.0.114:8000/ws" 
@@ -21,6 +22,13 @@ class ObjectDetectionClient:
         self.running = True
         self.last_detection_time = 0
         self.detection_cooldown = 4.0
+        
+        # MAVLink / GPS State
+        self.mav_connection = None
+        self.current_gps = {"lat": 0.0, "lon": 0.0}
+        self.mav_thread = None
+        self.mav_port = "/dev/ttyAMA0" # Default Pixhawk port on Linux/Pi, might need adjustment
+        self.mav_baud = 57600
 
     def on_message(self, ws, message):
         data = json.loads(message)
@@ -56,6 +64,61 @@ class ObjectDetectionClient:
         wst = threading.Thread(target=self.ws.run_forever)
         wst.daemon = True
         wst.start()
+
+        # Start MAVLink thread
+        self.mav_thread = threading.Thread(target=self.mavlink_loop)
+        self.mav_thread.daemon = True
+        self.mav_thread.start()
+
+    def mavlink_loop(self):
+        print(f"Connecting to MAVLink on {self.mav_port}...")
+        try:
+            # Try to connect. If it fails, we'll just log and continue with 0,0
+            self.mav_connection = mavutil.mavlink_connection(self.mav_port, baud=self.mav_baud)
+            self.mav_connection.wait_heartbeat(timeout=5)
+            print("MAVLink Heartbeat received!")
+            
+            # Request position data stream (10Hz)
+            # This is often needed if the Pixhawk is not configured to stream by default
+            print("Requesting position data stream...")
+            self.mav_connection.mav.request_data_stream_send(
+                self.mav_connection.target_system,
+                self.mav_connection.target_component,
+                mavutil.mavlink.MAV_DATA_STREAM_POSITION,
+                10, # 10 Hz
+                1   # Start
+            )
+        except Exception as e:
+            print(f"MAVLink Connection Error: {e}")
+            return
+
+        while self.running:
+            try:
+                # Wait for any message to see what's actually arriving
+                msg = self.mav_connection.recv_match(blocking=True, timeout=1.0)
+                if not msg:
+                    # Optional: print a dot or something to show the loop is alive but silent
+                    # print("DEBUG: No message received in 1s")
+                    continue
+                
+                # Print all message types to see if we are getting anything at all
+                # This helps verify the connection is alive even if GPS isn't coming through
+                if msg.get_type() not in ['BAD_DATA', 'HEARTBEAT']: # Filter noise if needed
+                     print(f"DEBUG: Received message type: {msg.get_type()}")
+
+                if msg.get_type() == 'GLOBAL_POSITION_INT':
+                    # Scale is 1e7
+                    self.current_gps["lat"] = msg.lat / 1e7
+                    self.current_gps["lon"] = msg.lon / 1e7
+                    print(f"GPS Updated: {self.current_gps}")
+                elif msg.get_type() == 'GPS_RAW_INT':
+                    self.current_gps["lat"] = msg.lat / 1e7
+                    self.current_gps["lon"] = msg.lon / 1e7
+                    print(f"GPS Updated (RAW): {self.current_gps}")
+            except Exception as e:
+                print(f"MAVLink Loop Error: {e}")
+
+            time.sleep(2)
 
     def detect_and_send(self):
         # Open Camera
@@ -121,10 +184,7 @@ class ObjectDetectionClient:
                     "image": jpg_as_text,
                     "label": best_label,
                     "confidence": best_conf,
-                    "gps": {
-                        "lat": 42.21796186856417,
-                        "lon": -71.16652560166608
-                    }
+                    "gps": self.current_gps
                 }
                 
                 try:
