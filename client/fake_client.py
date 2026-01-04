@@ -17,7 +17,8 @@ class ObjectDetectionClient:
     def __init__(self):
         self.ws = None
         self.prompts = []
-        self.model = YOLOE("yoloe-11l-seg.pt")  # Using YOLOE small model (segmentation as per user reversion)
+        self.model = YOLOE("yoloe-11s.yaml")  # Using YOLOE small model
+        self.model.load("yoloe-11s-seg.pt")
         self.running = True
         self.last_detection_time = 0
         self.detection_cooldown = 4.0 # Retaining config, though loop sleep overrides frequency

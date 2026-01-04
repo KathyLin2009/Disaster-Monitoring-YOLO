@@ -15,7 +15,8 @@ class ObjectDetectionClient:
     def __init__(self):
         self.ws = None
         self.prompts = []
-        self.model = YOLOE("yoloe-11s-seg.pt")  # Using YOLOE small model
+        self.model = YOLOE("yoloe-11s.yaml")  # Using YOLOE small model
+        self.model.load("yoloe-11s-seg.pt")
         self.cap = None
         self.running = True
         self.last_detection_time = 0
