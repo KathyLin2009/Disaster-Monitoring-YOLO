@@ -182,7 +182,7 @@ async def analyze_image(request: ImageAnalysisRequest):
 async def analyze_for_prompts(image_b64: str, current_prompts: List[str]):
     if not GEMINI_API_KEY:
         return []
-
+    print("Current prompts: ", current_prompts)
     try:
         # Remove header if present
         if "," in image_b64:
@@ -192,14 +192,16 @@ async def analyze_for_prompts(image_b64: str, current_prompts: List[str]):
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         if not current_prompts:
-            prompt = """Analyze this image and identify the 5 most important or distinct object categories present. 
-            Focus on things that would be relevant for a drone monitoring for disasters or interesting sights (e.g. people, fire, flood, cars, trees, animals).
-            Return only a comma-separated list of the 5 labels as lowercase text. No explanation."""
+            prompt = """Analyze this image and identify the 3 most important or distinct object categories present. 
+            Focus on things that would be relevant for a drone monitoring an area after a natural disaster.
+            Return only a comma-separated list of the 3 labels as lowercase text. No explanation."""
         else:
             prompt = f"""Analyze this image. The current detected objects are: {', '.join(current_prompts)}.
-            Identify up to 3 additional unique objects of interest not already listed. These must be important for aiding a search and rescue team and must be related to the landscape after a natural disaster.
+            Identify up to 3 additional UNIQUE objects of interest not already listed. These must be important for aiding a search and rescue team and must be related to the landscape after a natural disaster.
+            DO NOT SUGGEST OBJECTS THAT ARE ALREADY LISTED.
+            Evaluate the importance of these 3 objects in comparison to the current list and ONLY keep the most important ones.
             Priority: Only suggest objects that are more visually prominent or contextually significant than those currently listed. 
-            Constraints: Do not exceed a total of 20 prompts (including current ones).
+            Constraints: Do not exceed a total of 20 prompts including current ones. If the limit is hit, do not suggest additional prompts and return an empty string.
             Output: Return only a comma-separated list of new lowercase labels. 
             If no significant new objects are found, return an empty string. Do not include any introductory text or explanation."""
 
@@ -217,6 +219,7 @@ async def analyze_for_prompts(image_b64: str, current_prompts: List[str]):
         text = text.replace("```", "").replace("csv", "").strip()
         
         new_prompts = [p.strip().lower() for p in text.split(",") if p.strip()]
+        print("New prompts: ", new_prompts)
         return new_prompts
     except Exception as e:
         print(f"Gemini Discovery Error: {e}")
