@@ -4,4 +4,3 @@ websockets
 jinja2
 python-multipart
 google-generativeai
-httpx
