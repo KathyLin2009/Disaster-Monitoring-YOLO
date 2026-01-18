@@ -9,7 +9,7 @@ import numpy as np
 from pymavlink import mavutil
 
 # Configuration
-SERVER_URL = "ws://192.168.0.114:8000/ws" 
+SERVER_URL = "ws://192.168.0.116:8000/ws" 
 # Note: For real Pi deployment, 'localhost' should be changed to Server IP.
 
 class ObjectDetectionClient:
@@ -175,7 +175,7 @@ class ObjectDetectionClient:
                 print(f"Detected {best_label} ({best_conf:.2f}). Sending to server...")
                 
                 # Encode annotated frame (with boxes) to jpg -> base64
-                annotated_img = results[0].plot()
+                annotated_img = results[0].plot(conf=False)
                 _, buffer = cv2.imencode('.jpg', annotated_img)
                 jpg_as_text = base64.b64encode(buffer).decode('utf-8')
                 
@@ -194,7 +194,7 @@ class ObjectDetectionClient:
                     print(f"Failed to send detection: {e}")
 
             # Show local video feed with bounding boxes
-            annotated_frame = results[0].plot() if results else frame
+            annotated_frame = results[0].plot(conf=False) if results else frame
             cv2.imshow('Client Feed', annotated_frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                self.running = False

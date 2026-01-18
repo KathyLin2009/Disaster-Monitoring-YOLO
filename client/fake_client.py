@@ -10,7 +10,7 @@ import os
 import glob
 
 # Configuration
-SERVER_URL = "ws://192.168.0.114:8000/ws" 
+SERVER_URL = "ws://192.168.0.116:8000/ws" 
 # Note: For real Pi deployment, 'localhost' should be changed to Server IP.
 
 class ObjectDetectionClient:
@@ -126,7 +126,7 @@ class ObjectDetectionClient:
                 if detected:
                     print(f"Detected {best_label} ({best_conf:.2f}) in {os.path.basename(img_path)}. Sending...")
                     
-                    annotated_img = results[0].plot()
+                    annotated_img = results[0].plot(conf=False)
                     _, buffer = cv2.imencode('.jpg', annotated_img)
                     jpg_as_text = base64.b64encode(buffer).decode('utf-8')
                     
@@ -150,7 +150,7 @@ class ObjectDetectionClient:
                     print(f"No target object detected in {os.path.basename(img_path)}")
 
                 # Show local video feed
-                annotated_frame = results[0].plot() if results else frame
+                annotated_frame = results[0].plot(conf=False) if results else frame
                 
                 # Resize for display
                 h, w = annotated_frame.shape[:2]
