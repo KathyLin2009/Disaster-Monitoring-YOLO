@@ -14,20 +14,19 @@
             max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #0f172a;
-            color: #f8fafc;
+            color: #061E29;
         }
 
         .container {
-            background: #1e293b;
+            background-color: #abbce3;
             padding: 24px;
             border-radius: 16px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            border: 1px solid #334155;
+            box-shadow: 0 10px 15px -3px rgba(31, 27, 27, 0.3), 0 4px 6px -2px rgba(207, 81, 81, 0.05);
+            border: 1px solid #fcfcfc;
         }
 
         h1 {
-            color: #f8fafc;
+            color: #061E29;
             font-weight: 800;
             letter-spacing: -0.025em;
             margin-bottom: 24px;
@@ -38,7 +37,7 @@
             width: 100%;
             border-radius: 12px;
             margin-bottom: 24px;
-            border: 1px solid #334155;
+            border: 1px solid #0e0f11;
             overflow: hidden;
             z-index: 1;
             /* Ensure markers are below modal */
@@ -109,7 +108,7 @@
             font-size: 1.25em;
             font-weight: bold;
             text-transform: capitalize;
-            color: #333;
+            color: #061E29;
         }
 
         .view-all-btn {
@@ -216,7 +215,7 @@
         .close-modal {
             font-size: 1.5em;
             cursor: pointer;
-            color: #666;
+            color: #061E29;
         }
 
         .modal-grid {
@@ -248,13 +247,13 @@
         .detection-info {
             margin-top: 10px;
             font-size: 0.9em;
-            color: #666;
+            color: #061E29;
         }
 
         .status {
             margin-bottom: 10px;
             font-size: 0.9em;
-            color: #666;
+            color: #061E29;
         }
 
         .dot {
@@ -274,7 +273,7 @@
 
 <body>
     <div class="container">
-        <h1>Object Detection Control</h1>
+        <h1>Rescue Monitoring</h1>
         <div class="status">
             Server: <span id="status-dot" class="dot"></span><span id="status-text">Disconnected</span>
             &nbsp;|&nbsp;
@@ -333,11 +332,10 @@
             // Default center if no GPS yet
             map = L.map('map-container').setView([0, 0], 2);
 
-            // Modern Dark Mode Tiles (CartoDB Dark Matter)
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 20
+            // OpenStreetMap Standard Tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
             }).addTo(map);
 
             console.log("Map initialized");
@@ -478,7 +476,7 @@
             }
 
             // Update Map Marker
-            if (data.gps && data.gps.lat !== 0 && data.gps.lon !== 0) {
+            if (map && data.gps && data.gps.lat !== 0 && data.gps.lon !== 0) {
                 const lat = data.gps.lat;
                 const lon = data.gps.lon;
 
