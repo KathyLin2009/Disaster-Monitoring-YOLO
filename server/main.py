@@ -31,25 +31,26 @@ class ConnectionManager:
         self.pi_connected = False
         self.client_info = {} # ws -> client_type
         # Seed prompts to bootstrap discovery if none are set
-        self.seed_prompts = ["person", "car", "dog", "tree", "fire"]
         self.current_prompts = []
+        self.suggested_prompts = []
         self._last_discovery_time = 0
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
         # Send current prompts (or seed prompts if empty) and pi status to newly connected client
-        prompts_to_send = self.current_prompts if self.current_prompts else self.seed_prompts
+        prompts_to_send = self.current_prompts
         await websocket.send_json({
             "type": "init", 
             "prompts": prompts_to_send,
+            "suggested_prompts": self.suggested_prompts,
             "pi_connected": self.pi_connected
         })
         
         # If Pi just connected and we have no prompts, push seed prompts immediately
         if self.client_info.get(websocket) == "pi" and not self.current_prompts:
-            self.current_prompts = self.seed_prompts.copy()
-            await self.broadcast({"type": "update_prompt", "prompts": self.current_prompts})
+            # Wait for user input
+            await self.broadcast({"type": "update_prompt", "prompts": []})
 
     async def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
@@ -70,6 +71,20 @@ class ConnectionManager:
     async def handle_prompt_update(self, prompts: List[str]):
         self.current_prompts = prompts
         await self.broadcast({"type": "update_prompt", "prompts": prompts})
+
+    async def handle_accept_suggestion(self, prompt: str):
+        if prompt in self.suggested_prompts:
+            self.suggested_prompts.remove(prompt)
+            if prompt not in self.current_prompts:
+                self.current_prompts.append(prompt)
+                
+            await self.broadcast({"type": "update_prompt", "prompts": self.current_prompts})
+            await self.broadcast({"type": "suggested_prompts_update", "prompts": self.suggested_prompts})
+
+    async def handle_reject_suggestion(self, prompt: str):
+        if prompt in self.suggested_prompts:
+            self.suggested_prompts.remove(prompt)
+            await self.broadcast({"type": "suggested_prompts_update", "prompts": self.suggested_prompts})
 
     async def handle_detection_event(self, data: dict):
         # Broadcast the detection to browsers
@@ -99,17 +114,14 @@ class ConnectionManager:
         if new_discovered:
             updated = False
             for p in new_discovered:
-                if p not in self.current_prompts:
-                    print(f"Discovered new prompt: {p}")
-                    self.current_prompts.append(p)
+                # Add to suggested if not already active and not already suggested
+                if p not in self.current_prompts and p not in self.suggested_prompts:
+                    print(f"Discovered new prompt suggestion: {p}")
+                    self.suggested_prompts.append(p)
                     updated = True
             
             if updated:
-                await self.broadcast({"type": "update_prompt", "prompts": self.current_prompts})
-
-            if updated:
-                # Also ensure the seed prompts aren't just duplicating
-                await self.broadcast({"type": "update_prompt", "prompts": self.current_prompts})
+                await self.broadcast({"type": "suggested_prompts_update", "prompts": self.suggested_prompts})
 
     async def register_pi(self, websocket: WebSocket):
         self.client_info[websocket] = "pi"
@@ -117,9 +129,7 @@ class ConnectionManager:
         await self.broadcast({"type": "pi_status", "connected": True})
         
         # Push initial prompts to Pi immediately
-        prompts_to_send = self.current_prompts if self.current_prompts else self.seed_prompts
-        if not self.current_prompts:
-            self.current_prompts = self.seed_prompts.copy()
+        prompts_to_send = self.current_prompts
         
         await websocket.send_json({
             "type": "update_prompt",
@@ -185,6 +195,12 @@ async def websocket_endpoint(websocket: WebSocket):
             
             elif msg_type == "detection":
                 await manager.handle_detection_event(data)
+                
+            elif msg_type == "accept_suggestion":
+                await manager.handle_accept_suggestion(data.get("prompt"))
+                
+            elif msg_type == "reject_suggestion":
+                await manager.handle_reject_suggestion(data.get("prompt"))
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
