@@ -137,12 +137,8 @@ class ObjectDetectionClient:
                 continue
 
             if not self.prompts:
-                # No prompts set, just show fee locally to indicate it's running
-                cv2.imshow('Client Feed', frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    self.running = False
-                    break
-                time.sleep(0.01)
+                # No prompts set, just sleep and continue
+                time.sleep(0.1)
                 continue
 
             # Run Usage
@@ -193,18 +189,10 @@ class ObjectDetectionClient:
                 except Exception as e:
                     print(f"Failed to send detection: {e}")
 
-            # Show local video feed with bounding boxes
-            annotated_frame = results[0].plot(conf=False) if results else frame
-            cv2.imshow('Client Feed', annotated_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-               self.running = False
-               break
-            
-            # Simple sleep to prevent 100% CPU usage if no specific FPS target
+            # Loop sleep
             time.sleep(0.01)
 
         self.cap.release()
-        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     client = ObjectDetectionClient()
