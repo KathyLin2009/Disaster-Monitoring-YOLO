@@ -4,6 +4,8 @@ import json
 import base64
 import time
 import threading
+import os
+import datetime
 from ultralytics import YOLOE
 import numpy as np
 from pymavlink import mavutil
@@ -21,7 +23,13 @@ class ObjectDetectionClient:
         self.cap = None
         self.running = True
         self.last_detection_time = 0
+        self.last_detection_time = 0
         self.detection_cooldown = 4.0
+        
+        self.video_writer = None
+        # Ensure videos directory exists
+        if not os.path.exists("videos"):
+            os.makedirs("videos")
         
         # MAVLink / GPS State
         self.mav_connection = None
@@ -128,6 +136,17 @@ class ObjectDetectionClient:
             return
 
         print("Camera started. Waiting for prompts...")
+        
+        # Initialize Video Writer
+        frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = 20.0 # Default assumption
+        
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"videos/video_{timestamp}.avi"
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        self.video_writer = cv2.VideoWriter(filename, fourcc, fps, (frame_width, frame_height))
+        print(f"Recording to {filename}")
 
         while self.running:
             ret, frame = self.cap.read()
@@ -189,10 +208,18 @@ class ObjectDetectionClient:
                 except Exception as e:
                     print(f"Failed to send detection: {e}")
 
+            # Record to video file
+            if self.video_writer:
+                # Use results[0].plot() if we have results, otherwise plain frame
+                frame_to_write = results[0].plot(conf=False) if results else frame
+                self.video_writer.write(frame_to_write)
+
             # Loop sleep
             time.sleep(0.01)
 
         self.cap.release()
+        if self.video_writer:
+            self.video_writer.release()
 
 if __name__ == "__main__":
     client = ObjectDetectionClient()
