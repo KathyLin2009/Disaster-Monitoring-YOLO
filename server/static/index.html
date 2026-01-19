@@ -86,6 +86,61 @@
             margin-bottom: 5px;
         }
 
+        /* Suggestions Bar */
+        #suggestions-bar {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            /* Hidden by default */
+            border: 1px solid #e2e8f0;
+        }
+
+        #suggestions-bar h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #061E29;
+        }
+
+        .suggestion-chip {
+            display: inline-flex;
+            align-items: center;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 12px;
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        .suggestion-chip button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 4px;
+            margin-left: 5px;
+            font-size: 1.1em;
+            color: inherit;
+            display: inline-block;
+        }
+
+        .suggestion-chip button:hover {
+            opacity: 0.7;
+            transform: none;
+            background: none;
+        }
+
+        .suggestion-btn-accept {
+            color: #16a34a;
+        }
+
+        .suggestion-btn-reject {
+            color: #dc2626;
+        }
+
         /* Dashboard Styles */
         .category-section {
             background: #fff;
@@ -280,6 +335,11 @@
             Client (Drone): <span id="pi-status-dot" class="dot"></span><span id="pi-status-text">Disconnected</span>
         </div>
 
+        <div id="suggestions-bar">
+            <h3>Suggested Prompts</h3>
+            <div id="suggestions-list"></div>
+        </div>
+
         <div class="controls">
             <input type="text" id="prompt-input" placeholder="Enter object to detect (e.g., 'red apple', 'cat')">
             <button onclick="addPrompt()">Add Prompt</button>
@@ -362,14 +422,57 @@
             if (data.type === 'init') {
                 updatePromptDisplay(data.prompts);
                 updatePiStatus(data.pi_connected);
+                if (data.suggested_prompts) {
+                    updateSuggestions(data.suggested_prompts);
+                }
             } else if (data.type === 'pi_status') {
                 updatePiStatus(data.connected);
             } else if (data.type === 'update_prompt') {
                 updatePromptDisplay(data.prompts);
+            } else if (data.type === 'suggested_prompts_update') {
+                updateSuggestions(data.prompts);
             } else if (data.type === 'detection_event') {
                 addDetection(data);
             }
         };
+
+        function updateSuggestions(prompts) {
+            const bar = document.getElementById("suggestions-bar");
+            const list = document.getElementById("suggestions-list");
+            list.innerHTML = "";
+
+            if (!prompts || prompts.length === 0) {
+                bar.style.display = "none";
+                return;
+            }
+
+            bar.style.display = "block";
+            prompts.forEach(p => {
+                const chip = document.createElement("span");
+                chip.className = "suggestion-chip";
+                chip.innerHTML = `
+                    ${p}
+                    <button class="suggestion-btn-accept" onclick="acceptSuggestion('${p}')" title="Add">✓</button>
+                    <button class="suggestion-btn-reject" onclick="rejectSuggestion('${p}')" title="Delete">✗</button>
+                `;
+                list.appendChild(chip);
+            });
+        }
+
+        function acceptSuggestion(prompt) {
+            ws.send(JSON.stringify({
+                type: "accept_suggestion",
+                prompt: prompt
+            }));
+        }
+
+        function rejectSuggestion(prompt) {
+            ws.send(JSON.stringify({
+                type: "reject_suggestion",
+                prompt: prompt
+            }));
+        }
+
 
         function updatePromptDisplay(prompts) {
             currentPrompts = prompts;
