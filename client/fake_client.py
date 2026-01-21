@@ -8,9 +8,11 @@ from ultralytics import YOLOE
 import numpy as np
 import os
 import glob
+import random
+import math
 
 # Configuration
-SERVER_URL = "ws://192.168.0.116:8000/ws" 
+SERVER_URL = "ws://192.168.0.54:8000/ws" 
 # Note: For real Pi deployment, 'localhost' should be changed to Server IP.
 
 class ObjectDetectionClient:
@@ -22,6 +24,20 @@ class ObjectDetectionClient:
         self.running = True
         self.last_detection_time = 0
         self.detection_cooldown = 4.0 # Retaining config, though loop sleep overrides frequency
+
+    def generate_random_gps(self, center_lat, center_lon, radius_miles=2):
+        # 1 degree lat ~= 69 miles
+        # 1 degree lon ~= 69 miles * cos(lat)
+        
+        r = random.uniform(0, radius_miles)
+        theta = random.uniform(0, 2 * math.pi)
+        
+        delta_lat = (r * math.cos(theta)) / 69.0
+        
+        # approximate conversion for longitude
+        delta_lon = (r * math.sin(theta)) / (69.0 * math.cos(math.radians(center_lat)))
+        
+        return center_lat + delta_lat, center_lon + delta_lon
 
     def on_message(self, ws, message):
         data = json.loads(message)
@@ -130,14 +146,16 @@ class ObjectDetectionClient:
                     _, buffer = cv2.imencode('.jpg', annotated_img)
                     jpg_as_text = base64.b64encode(buffer).decode('utf-8')
                     
+                    lat, lon = self.generate_random_gps(42.21796186856417, -71.16652560166608)
+                    
                     payload = {
                         "type": "detection",
                         "image": jpg_as_text,
                         "label": best_label,
                         "confidence": best_conf,
                         "gps": {
-                            "lat": 42.21796186856417,
-                            "lon": -71.16652560166608
+                            "lat": lat,
+                            "lon": lon
                         }
                     }
                     

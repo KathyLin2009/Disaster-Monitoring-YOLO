@@ -11,7 +11,7 @@ import numpy as np
 from pymavlink import mavutil
 
 # Configuration
-SERVER_URL = "ws://192.168.0.116:8000/ws" 
+SERVER_URL = "ws://192.168.0.54:8000/ws" 
 # Note: For real Pi deployment, 'localhost' should be changed to Server IP.
 
 class ObjectDetectionClient:
