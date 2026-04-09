@@ -1,4 +1,4 @@
-# Disaster Monitoring System with YOLO & Gemini
+# Disaster Monitoring System with YOLO & LLM
 
 This project implements a Client-Server architecture for advanced disaster monitoring and object detection. It leverages **YOLO** for real-time object detection on the client side (e.g., a drone-mounted Raspberry Pi) and **Google's Gemini/Gemma** models on the server for dynamic prompt discovery and detailed scene analysis.
 
